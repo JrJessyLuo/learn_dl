@@ -1,113 +1,118 @@
-#!/usr/bin/env python
-# -*- coding: UTF-8 -*-
+﻿# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 12 11:30:08 2018
 
+@author: Jessy
+"""
 
 import random
 from numpy import *
-
+from functools import reduce
 
 def sigmoid(inX):
-    return 1.0 / (1 + exp(-inX))
+    return 1.0/(1+exp(-inX))
 
-
+#输入点
 class Node(object):
-    def __init__(self, layer_index, node_index):
-        self.layer_index = layer_index
-        self.node_index = node_index
-        self.downstream = []
-        self.upstream = []
-        self.output = 0
-        self.delta = 0
-
-    def set_output(self, output):
-        self.output = output
-
-    def append_downstream_connection(self, conn):
+    def __init__(self,layer_index,node_index):
+        self.layer_index=layer_index
+        self.node_index=node_index
+        self.downstream=[]
+        self.upstream=[]
+        self.output=0.0
+#        对输入值的误差
+        self.delta=0.0
+        
+    def set_output(self,output):
+        self.output=output
+        
+    def append_downstream_connection(self,conn):
         self.downstream.append(conn)
-
-    def append_upstream_connection(self, conn):
+        
+    def append_upstream_connection(self,conn):
         self.upstream.append(conn)
-
+    
+#    计算输出层    
     def calc_output(self):
         output = reduce(lambda ret, conn: ret + conn.upstream_node.output * conn.weight, self.upstream, 0)
         self.output = sigmoid(output)
-
+        
+#    计算隐藏层误差
     def calc_hidden_layer_delta(self):
-        downstream_delta = reduce(
-            lambda ret, conn: ret + conn.downstream_node.delta * conn.weight,
-            self.downstream, 0.0)
-        self.delta = self.output * (1 - self.output) * downstream_delta
-
-    def calc_output_layer_delta(self, label):
-        self.delta = self.output * (1 - self.output) * (label - self.output)
-
+        downstream_delta=reduce(lambda ret,conn:ret+conn.downstream_node.delta*conn.weight,self.downstream,0.0)
+        self.delta=self.output*(1-self.output)*downstream_delta
+    
+#    计算输出层误差
+    def calc_output_layer_delta(self,label):
+        self.delta=self.output*(1-self.output)*(label-self.output)
+        
     def __str__(self):
         node_str = '%u-%u: output: %f delta: %f' % (self.layer_index, self.node_index, self.output, self.delta)
         downstream_str = reduce(lambda ret, conn: ret + '\n\t' + str(conn), self.downstream, '')
         upstream_str = reduce(lambda ret, conn: ret + '\n\t' + str(conn), self.upstream, '')
         return node_str + '\n\tdownstream:' + downstream_str + '\n\tupstream:' + upstream_str 
 
-
+#常数点    
 class ConstNode(object):
-    def __init__(self, layer_index, node_index):
-        self.layer_index = layer_index
-        self.node_index = node_index
-        self.downstream = []
-        self.output = 1
-
-    def append_downstream_connection(self, conn):
+    def __init__(self,lay_index,node_index):
+        self.layer_index=lay_index
+        self.node_index=node_index
+        self.downstream=[]
+        self.output=1
+        
+    def append_downstream_connection(self,conn):
         self.downstream.append(conn)
-
+        
     def calc_hidden_layer_delta(self):
-        downstream_delta = reduce(
-            lambda ret, conn: ret + conn.downstream_node.delta * conn.weight,
-            self.downstream, 0.0)
-        self.delta = self.output * (1 - self.output) * downstream_delta
-
+        downstream_delta=reduce(lambda ret,conn:ret+conn.downstream_node.delta*conn.weight,self.downstream,0.0)
+        self.delta=self.output*(1-self.output)*downstream_delta
+        
     def __str__(self):
         node_str = '%u-%u: output: 1' % (self.layer_index, self.node_index)
         downstream_str = reduce(lambda ret, conn: ret + '\n\t' + str(conn), self.downstream, '')
         return node_str + '\n\tdownstream:' + downstream_str
 
-
+#包括输入层输出层隐藏层    
 class Layer(object):
-    def __init__(self, layer_index, node_count):
-        self.layer_index = layer_index
-        self.nodes = []
+    def __init__(self,layer_index,node_count):
+        self.lay_index=layer_index
+        self.nodes=[]
         for i in range(node_count):
-            self.nodes.append(Node(layer_index, i))
-        self.nodes.append(ConstNode(layer_index, node_count))
-
-    def set_output(self, data):
+            self.nodes.append(Node(layer_index,i))
+        self.nodes.append(ConstNode(layer_index,node_count))
+        
+    def set_output(self,data):
         for i in range(len(data)):
             self.nodes[i].set_output(data[i])
-
+            
+            
     def calc_output(self):
         for node in self.nodes[:-1]:
             node.calc_output()
-
+    
     def dump(self):
         for node in self.nodes:
-            print node
-
-
+            print(node)
+            
+#记录层级之间的连接            
 class Connection(object):
-    def __init__(self, upstream_node, downstream_node):
-        self.upstream_node = upstream_node
-        self.downstream_node = downstream_node
-        self.weight = random.uniform(-0.1, 0.1)
-        self.gradient = 0.0
-
+    def __init__(self,upstream_node,downstream_node):
+        self.upstream_node=upstream_node
+        self.downstream_node=downstream_node
+        self.weight=random.uniform(-0.1,0.1)
+        self.gradient=0.0
+    
+#计算对层级连接参数的变化率    
     def calc_gradient(self):
-        self.gradient = self.downstream_node.delta * self.upstream_node.output
-
-    def update_weight(self, rate):
+        self.gradient=self.downstream_node.delta*self.upstream_node.output
+        
+    def update_weight(self,rate):
         self.calc_gradient()
-        self.weight += rate * self.gradient
-
+        self.weight+=rate*self.gradient
+        
     def get_gradient(self):
         return self.gradient
-
+    
     def __str__(self):
         return '(%u-%u) -> (%u-%u) = %f' % (
             self.upstream_node.layer_index, 
@@ -115,85 +120,85 @@ class Connection(object):
             self.downstream_node.layer_index, 
             self.downstream_node.node_index, 
             self.weight)
-
-
+        
 class Connections(object):
     def __init__(self):
-        self.connections = []
-
-    def add_connection(self, connection):
+        self.connections=[]
+    
+    def add_connection(self,connection):
         self.connections.append(connection)
-
+        
     def dump(self):
-        for conn in self.connections:
-            print conn
-
-
+        for conn in self.conntions:
+            print(conn)
+            
 class Network(object):
-    def __init__(self, layers):
-        self.connections = Connections()
-        self.layers = []
-        layer_count = len(layers)
-        node_count = 0;
+    def __init__(self,layers):
+#        建立网络连接
+        self.connections=Connections()
+        self.layers=[]
+        layer_count=len(layers)
+        node_count=0
         for i in range(layer_count):
-            self.layers.append(Layer(i, layers[i]))
-        for layer in range(layer_count - 1):
-            connections = [Connection(upstream_node, downstream_node) 
-                           for upstream_node in self.layers[layer].nodes
-                           for downstream_node in self.layers[layer + 1].nodes[:-1]]
+            self.layers.append(Layer(i,layers[i]))
+        for layer in range(layer_count-1):
+            connections=[Connection(upstream_node,downstream_node) 
+                for upstream_node in self.layers[layer].nodes
+                for downstream_node in self.layers[layer+1].nodes[:-1]]
             for conn in connections:
                 self.connections.add_connection(conn)
                 conn.downstream_node.append_upstream_connection(conn)
                 conn.upstream_node.append_downstream_connection(conn)
-
-
-    def train(self, labels, data_set, rate, epoch):
+                
+    def train(self,labels,data_set,rate,epoch):
         for i in range(epoch):
             for d in range(len(data_set)):
-                self.train_one_sample(labels[d], data_set[d], rate)
-                # print 'sample %d training finished' % d
-
-    def train_one_sample(self, label, sample, rate):
+                self.train_one_sample(labels[d],data_set[d],rate)
+    
+    def train_one_sample(self,label,sample,rate):
         self.predict(sample)
         self.calc_delta(label)
         self.update_weight(rate)
-
-    def calc_delta(self, label):
-        output_nodes = self.layers[-1].nodes
+        
+#    计算每层的误差   
+    def calc_delta(self,label):
+        output_nodes=self.layers[-1].nodes
         for i in range(len(label)):
             output_nodes[i].calc_output_layer_delta(label[i])
         for layer in self.layers[-2::-1]:
             for node in layer.nodes:
                 node.calc_hidden_layer_delta()
-
-    def update_weight(self, rate):
+    
+    #计算误差对参数的影响，并根据学习率更新权值            
+    def update_weight(self,rate):
         for layer in self.layers[:-1]:
             for node in layer.nodes:
                 for conn in node.downstream:
                     conn.update_weight(rate)
-
+                    
     def calc_gradient(self):
         for layer in self.layers[:-1]:
             for node in layer.nodes:
                 for conn in node.downstream:
                     conn.calc_gradient()
-
-    def get_gradient(self, label, sample):
+                    
+    def get_gradient(self,label,sample):
         self.predict(sample)
         self.calc_delta(label)
         self.calc_gradient()
-
-    def predict(self, sample):
+        
+    def predict(self,sample):
         self.layers[0].set_output(sample)
-        for i in range(1, len(self.layers)):
+        for i in range(1,len(self.layers)):
             self.layers[i].calc_output()
-        return map(lambda node: node.output, self.layers[-1].nodes[:-1])
 
+        return list(map(lambda node:node.output,self.layers[-1].nodes[:-1]))
+    
     def dump(self):
         for layer in self.layers:
             layer.dump()
-
-
+            
+ 
 class Normalizer(object):
     def __init__(self):
         self.mask = [
@@ -201,14 +206,13 @@ class Normalizer(object):
         ]
 
     def norm(self, number):
-        return map(lambda m: 0.9 if number & m else 0.1, self.mask)
+        return list(map(lambda m: 0.9 if number & m else 0.1, self.mask))
 
     def denorm(self, vec):
-        binary = map(lambda i: 1 if i > 0.5 else 0, vec)
+        binary = list(map(lambda i: 1 if i > 0.5 else 0, vec))
         for i in range(len(self.mask)):
             binary[i] = binary[i] * self.mask[i]
         return reduce(lambda x,y: x + y, binary)
-
 
 def mean_square_error(vec1, vec2):
     return 0.5 * reduce(lambda a, b: a + b, 
@@ -216,8 +220,7 @@ def mean_square_error(vec1, vec2):
                             zip(vec1, vec2)
                         )
                  )
-
-
+                        
 def gradient_check(network, sample_feature, sample_label):
     '''
     梯度检查
@@ -252,41 +255,38 @@ def gradient_check(network, sample_feature, sample_label):
         expected_gradient = (error2 - error1) / (2 * epsilon)
     
         # 打印
-        print 'expected gradient: \t%f\nactual gradient: \t%f' % (
+        print (
             expected_gradient, actual_gradient)
 
-
 def train_data_set():
-    normalizer = Normalizer()
-    data_set = []
-    labels = []
-    for i in range(0, 256, 8):
-        n = normalizer.norm(int(random.uniform(0, 256)))
+    normalizer=Normalizer()
+    data_set=[]
+    labels=[]
+    for i in range(0,256,8):
+        n=list(normalizer.norm(int(random.uniform(0,256))))
         data_set.append(n)
         labels.append(n)
-    return labels, data_set
-
+    return labels,data_set
 
 def train(network):
-    labels, data_set = train_data_set()
-    network.train(labels, data_set, 0.3, 50)
-
-
-def test(network, data):
+    labels,data_set=train_data_set()
+    network.train(labels,data_set,0.3,50)
+    
+def test(network,data):
     normalizer = Normalizer()
     norm_data = normalizer.norm(data)
     predict_data = network.predict(norm_data)
-    print '\ttestdata(%u)\tpredict(%u)' % (
+    print (
         data, normalizer.denorm(predict_data))
 
-
+#计算所有输出值都为1的概率    
 def correct_ratio(network):
-    normalizer = Normalizer()
-    correct = 0.0;
+    normalizer=Normalizer()
+    correct=0.0
     for i in range(256):
-        if normalizer.denorm(network.predict(normalizer.norm(i))) == i:
-            correct += 1.0
-    print 'correct_ratio: %.2f%%' % (correct / 256 * 100)
+        if normalizer.denorm(network.predict(normalizer.norm(i)))==i:
+            correct+=1
+    print  (correct / 256 )
 
 
 def gradient_check_test():
@@ -294,10 +294,13 @@ def gradient_check_test():
     sample_feature = [0.9, 0.1]
     sample_label = [0.9, 0.1]
     gradient_check(net, sample_feature, sample_label)
-
-
+    
 if __name__ == '__main__':
+#    构造神经网络并训练
     net = Network([8, 3, 8])
     train(net)
     net.dump()
-    correct_ratio(net)
+    correct_ratio(net)                      
+            
+    
+    
